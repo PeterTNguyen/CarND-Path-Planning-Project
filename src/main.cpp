@@ -9,6 +9,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "spline.h"
+#include "vehicle.h"
 
 using namespace std;
 
@@ -205,7 +206,9 @@ int main() {
 
   double ref_vel = 40.0;
 
-  h.onMessage([&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  Vehicle vehicle(ref_vel);
+
+  h.onMessage([&vehicle, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -218,12 +221,9 @@ int main() {
 
       if (s != "") {
         auto j = json::parse(s);
-        
         string event = j[0].get<string>();
-        
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          
           // Main car's localization Data
             double car_x = j[1]["x"];
             double car_y = j[1]["y"];
@@ -329,7 +329,6 @@ int main() {
               double N = target_dist/(0.02*ref_vel/2.24);
               double x_point = x_addon + target_x/N;
               double y_point = s(x_point);
-              
 
               x_addon = x_point;
 
@@ -345,7 +344,6 @@ int main() {
               next_x_vals.push_back(x_point);
               next_y_vals.push_back(y_point);
             }
-            
             // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
             msgJson["next_x"] = next_x_vals;
             msgJson["next_y"] = next_y_vals;
@@ -354,7 +352,7 @@ int main() {
 
             //this_thread::sleep_for(chrono::milliseconds(1000));
             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          
+
         }
       } else {
         // Manual driving
