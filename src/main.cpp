@@ -246,6 +246,28 @@ int main() {
 
             json msgJson;
 
+            //Update Vehicle parameters
+            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+            //Add previous path
+            vehicle.next_x_vals.clear();
+            vehicle.next_y_vals.clear();
+            for(int i = 0; i < previous_path_x.size(); i++)
+            {
+              vehicle.next_x_vals.push_back(previous_path_x[i]);
+              vehicle.next_y_vals.push_back(previous_path_y[i]);
+            }
+            //Add sensor fusion
+            vehicle.sensor_fusion.clear();
+            for(int i = 0; i < sensor_fusion.size(); i++)
+            {
+              vector<double> temp;
+              for(int j = 0; j < 7; j++)
+              {
+                temp.push_back(sensor_fusion[i][j]);
+              }
+              vehicle.sensor_fusion.push_back(temp);
+            }
+
             vector<double> next_x_vals;
             vector<double> next_y_vals;
 
