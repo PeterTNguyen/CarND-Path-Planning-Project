@@ -18,6 +18,11 @@ Vehicle::~Vehicle()
 {
 }
 
+void Vehicle::update_data(double car_x, double car_y, double car_s, 
+  double car_d, double car_yaw, double car_speed, auto previous_path_x)
+{
+}
+
 vector<state> Vehicle::successor_states()
 {
   vector<state> next_states;

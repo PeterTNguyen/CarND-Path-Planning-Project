@@ -202,7 +202,7 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
-  int lane = 1;
+  int lane = 2;
 
   double ref_vel = 40.0;
 
@@ -252,22 +252,27 @@ int main() {
             vector<double> ptsx;
             vector<double> ptsy;
 
+            // reference yaw, x, y states 
+            // either we will reference a starting point as to where the car is or at the previous paths.
             double ref_x = car_x;
             double ref_y = car_y;
             double ref_yaw = deg2rad(car_yaw);
 
 
+            // if previous path is almost empty, use car as starting reference
             if(prev_size < 2)
             {
+              //user two points that make path tangent to referencee
               double prev_car_x = car_x - cos(car_yaw);
               double prev_car_y = car_y - sin(car_yaw);
 
               ptsx.push_back(prev_car_x);
               ptsy.push_back(prev_car_y);
-
             }
+            // use previous path end point as starting reference
             else
             {
+              //redefine reference state as previous path end pointe
               ref_x = previous_path_x[prev_size-1];
               ref_y = previous_path_y[prev_size-1];
 
@@ -275,6 +280,7 @@ int main() {
               double ref_y_prev = previous_path_y[prev_size-2];
               ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
 
+              //use last two end points to make path tanget to last two previous points 
               ptsx.push_back(ref_x_prev);
               ptsx.push_back(ref_x);
 
@@ -282,17 +288,14 @@ int main() {
               ptsy.push_back(ref_y);
             }
 
-
-
+            //In Frenet add evenly spaced 30m way points
             vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
-
             ptsx.push_back(next_wp0[0]);
             ptsx.push_back(next_wp1[0]);
             ptsx.push_back(next_wp2[0]);
-
 
             ptsy.push_back(next_wp0[1]);
             ptsy.push_back(next_wp1[1]);
@@ -300,6 +303,7 @@ int main() {
 
             for(int i = 0; i < ptsx.size(); i++)
             {
+              //shift car reference angle to 0
               double shift_x = ptsx[i] - ref_x;
               double shift_y = ptsy[i] - ref_y;
 
@@ -308,20 +312,23 @@ int main() {
 
             }
 
-            tk::spline s;
+            cout << "Ptsx size: " << ptsx.size() << endl; 
 
+            // create spline
+            tk::spline s;
             s.set_points(ptsx, ptsy);
 
+            // Push back previous path
             for(int i = 0; i < previous_path_x.size(); i++)
             {
               next_x_vals.push_back(previous_path_x[i]);
               next_y_vals.push_back(previous_path_y[i]);
             }
 
+            //calculate how to break up spline points so that we travel at our desired velocity
             double target_x = 30.0;
             double target_y = s(target_x);
             double target_dist = sqrt(target_x*target_x + target_y*target_y);
-
             double x_addon = 0;
 
             for(int i = 1; i <= 50 - previous_path_x.size(); i++)
