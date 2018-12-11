@@ -206,7 +206,7 @@ int main() {
 
   double ref_vel = 40.0;
 
-  Vehicle vehicle(ref_vel);
+  Vehicle vehicle;
 
   h.onMessage([&vehicle, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy, &lane](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -247,7 +247,7 @@ int main() {
             json msgJson;
 
             //Update Vehicle parameters
-            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed, prev_size);
             //Add previous path
             vehicle.next_x_vals.clear();
             vehicle.next_y_vals.clear();
@@ -268,6 +268,11 @@ int main() {
               vehicle.sensor_fusion.push_back(temp);
             }
 
+            vehicle.process_current_state();
+            msgJson["next_x"] = vehicle.next_x_vals;
+            msgJson["next_y"] = vehicle.next_y_vals;
+
+           /* 
             vector<double> next_x_vals;
             vector<double> next_y_vals;
 
@@ -334,8 +339,6 @@ int main() {
 
             }
 
-            cout << "Ptsx size: " << ptsx.size() << endl; 
-
             // create spline
             tk::spline s;
             s.set_points(ptsx, ptsy);
@@ -353,6 +356,7 @@ int main() {
             double target_dist = sqrt(target_x*target_x + target_y*target_y);
             double x_addon = 0;
 
+            cout << 50 - previous_path_x.size() << endl;
             for(int i = 1; i <= 50 - previous_path_x.size(); i++)
             {
               double N = target_dist/(0.02*ref_vel/2.24);
@@ -373,10 +377,13 @@ int main() {
               next_x_vals.push_back(x_point);
               next_y_vals.push_back(y_point);
             }
+
+
+
             // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
             msgJson["next_x"] = next_x_vals;
             msgJson["next_y"] = next_y_vals;
-
+            */
             auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
             //this_thread::sleep_for(chrono::milliseconds(1000));
