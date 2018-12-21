@@ -2,12 +2,14 @@
 
 
 static const double dt = 0.02;
+static const double max_vel = 45.0;
+static const double buffer_dist = 30.0;
 
 Vehicle::Vehicle()
 {
   current_state = RDY;
-  ref_vel = 10.0;
-  max_vel = 40.0;
+  ref_vel = 1;
+  target_vel = max_vel;
   max_num_waypoints = 50;
   lane = 1;
 
@@ -47,8 +49,8 @@ Vehicle::Vehicle()
   s_f.push_back(0);
 
   alpha = VectorXd(6);
-  calculateJMT(0, 1000, 0, max_vel, 0, 5, 10);
-  t = dt;
+  T = 5.0;
+  calculateJMT(0, 50, 0, 20, 0, 1, T);
 
 }
 
@@ -74,7 +76,6 @@ void Vehicle::calculateJMT(double s_i, double s_f, double s_i1,
   MatrixXd C = Ai*B;
 
   alpha << s_i, s_i1, s_i2/2, C(0), C(1), C(2);
-  cout << alpha << endl;
 
 }
 
@@ -92,58 +93,129 @@ void Vehicle::update_data(double car_x, double car_y, double car_s,
 
 void Vehicle::process_current_state()
 {
+
   double ref_x = car_x;
   double ref_y = car_y;
   double ref_yaw = deg2rad(car_yaw);
-  // if previous path is almost empty, use car as starting reference
-  ptsx.clear();
-  ptsy.clear();
-  if(prev_size < 2)
-  {
-    //user two points that make path tangent to referencee
-    double prev_car_x = car_x - cos(car_yaw);
-    double prev_car_y = car_y - sin(car_yaw);
-
-    ptsx.push_back(prev_car_x);
-    ptsy.push_back(prev_car_y);
-  }
-  // use previous path end point as starting reference
-  else
-  {
-    //redefine reference state as previous path end pointe
-    ref_x = next_x_vals[prev_size-1];
-    ref_y = next_y_vals[prev_size-1];
-
-    double ref_x_prev = next_x_vals[prev_size-2];
-    double ref_y_prev = next_y_vals[prev_size-2];
-    ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
-
-    //use last two end points to make path tanget to last two previous points 
-    ptsx.push_back(ref_x_prev);
-    ptsx.push_back(ref_x);
-
-    ptsy.push_back(ref_y_prev);
-    ptsy.push_back(ref_y);
-  }
-
-
 
   // ----------------STATE MATCHINE----------------
   if(current_state == RDY)
   {
-    //This state is responsible for getting the car from starting position
-    //to moving
-    vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-    vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-    vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+    if(prev_size < 2)
+    {
+      int num_pts = (int)(T/dt);
+      //user two points that make path tangent to referencee
+      double prev_car_x = car_x - cos(car_yaw);
+      double prev_car_y = car_y - sin(car_yaw);
+      ptsx.push_back(prev_car_x);
+      ptsy.push_back(prev_car_y);
 
-    ptsx.push_back(next_wp0[0]);
-    ptsx.push_back(next_wp1[0]);
-    ptsx.push_back(next_wp2[0]);
+      vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+      vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+      ptsx.push_back(next_wp0[0]);
+      ptsx.push_back(next_wp1[0]);
+      ptsy.push_back(next_wp0[1]);
+      ptsy.push_back(next_wp1[1]);
+      for(int i = 0; i < ptsx.size(); i++)
+      {
+        //shift car reference angle to 0
+        double shift_x = ptsx[i] - ref_x;
+        double shift_y = ptsy[i] - ref_y;
 
-    ptsy.push_back(next_wp0[1]);
-    ptsy.push_back(next_wp1[1]);
-    ptsy.push_back(next_wp2[1]);
+        ptsx[i] = (shift_x * cos(-ref_yaw) - shift_y*sin(-ref_yaw));
+        ptsy[i] = (shift_x * sin(-ref_yaw) + shift_y*cos(-ref_yaw));
+
+      }
+
+      tk::spline s;
+      s.set_points(ptsx, ptsy);
+
+      double t = 0.0;
+      for(int i = 0; i < num_pts; i++)
+      {
+        double x_point = alpha(1)*t + alpha(2)*t*t + alpha(3)*t*t*t +
+                         alpha(4)*t*t*t*t + alpha(5)*t*t*t*t*t;
+        double y_point = s(x_point);
+        double x_ref = x_point;
+        double y_ref = y_point;
+
+        x_point = x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw);
+        y_point = x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw);
+
+        x_point += ref_x;
+        y_point += ref_y;
+
+        next_x_vals.push_back(x_point);
+        next_y_vals.push_back(y_point);
+        t += dt;
+
+      }
+    }
+
+    if(prev_size > 0 && prev_size < 4)
+    {
+      current_state = KL;
+      ref_vel = car_speed;
+    }
+
+  }
+  else if(current_state == KL)
+  {
+    double min_s = 10000;
+    target_vel = max_vel;
+    for(int i = 0 ; i < sensor_fusion.size(); i++)
+    {
+      double sensor_d = sensor_fusion[i][6];
+      double sensor_s = sensor_fusion[i][5];
+      if(sensor_d > lane*4.0 && sensor_d < (lane+1)*4.0)
+      {
+        if(sensor_s > car_s)
+        {
+          double s_diff = sensor_s - car_s;
+          if(s_diff < min_s && s_diff < buffer_dist)
+          {
+            min_s = s_diff;
+            double sensor_vx = sensor_fusion[i][3];
+            double sensor_vy = sensor_fusion[i][4];
+
+            target_vel =sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) * 2.24;
+          }
+        }
+      }
+    }
+    if(ref_vel < target_vel)
+    {
+      ref_vel += 0.225;
+    }
+    else
+    {
+      ref_vel -= 0.225;
+    }
+    cout << target_vel << endl;
+
+
+
+    //Define first two points of spline
+    //use last two end points to make path tanget to last two previous points 
+    ptsx.clear();
+    ptsy.clear();
+    ref_x = next_x_vals[prev_size-1];
+    ref_y = next_y_vals[prev_size-1];
+    double ref_x_prev = next_x_vals[prev_size-2];
+    double ref_y_prev = next_y_vals[prev_size-2];
+    ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
+    ptsx.push_back(ref_x_prev);
+    ptsx.push_back(ref_x);
+    ptsy.push_back(ref_y_prev);
+    ptsy.push_back(ref_y);
+
+    //Define next waypoints for spline
+    for(int i = 0; i < 3; i++)
+    {
+      vector<double> next_wp = getXY(car_s + 30*(i+1), (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+      ptsx.push_back(next_wp[0]);
+      ptsy.push_back(next_wp[1]);
+    }
 
     for(int i = 0; i < ptsx.size(); i++)
     {
@@ -158,16 +230,19 @@ void Vehicle::process_current_state()
 
     tk::spline s;
     s.set_points(ptsx, ptsy);
-    cout << ptsx.size() << ", " << ptsy.size() << endl;
 
-    cout << 50 - prev_size << endl;
-    for(int i = 0; i < 50 - prev_size; i++)
+    double target_x = 30.0;
+    double target_y = s(target_x);
+    double target_dist = sqrt(target_x*target_x + target_y*target_y);
+    double x_addon = 0;
+    for(int i = 0; i < (50 - prev_size); i++)
     {
-      double x_point = alpha(1)*t + alpha(2)*t*t + alpha(3)*t*t*t +
-                       alpha(4)*t*t*t*t + alpha(5)*t*t*t*t*t;
+      double N = target_dist/(0.02*ref_vel/2.24);
+      double x_point = x_addon + target_x/N;
       double y_point = s(x_point);
 
-      //cout << x_point << ", " << y_point << endl;
+      x_addon = x_point;
+
       double x_ref = x_point;
       double y_ref = y_point;
 
@@ -180,18 +255,7 @@ void Vehicle::process_current_state()
       next_x_vals.push_back(x_point);
       next_y_vals.push_back(y_point);
 
-      t += dt;
     }
-    //for(double t = 0.0; t < T; t=t+dt)
-    //{
-    //  cout << t<< endl;
-    //  vector<double> next_point = getXY(car_s + s, 6, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-    //  next_x_vals.push_back(next_point[0]);
-    //  next_y_vals.push_back(next_point[1]);
-    //}
-  }
-  else if(current_state == KL)
-  {
   }
   else if(current_state == PLCL)
   {

@@ -57,12 +57,13 @@ class Vehicle
 
     //pathing variables
     double ref_vel;
-    double max_vel;
+    double target_vel;
     int lane;
     int prev_size;
     int max_num_waypoints;
     VectorXd alpha;
-    double t;
+    double x_temp;
+    double T;
 
     //Car parameters
     double car_s;

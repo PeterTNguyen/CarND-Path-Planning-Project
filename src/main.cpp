@@ -260,11 +260,14 @@ int main() {
             vehicle.sensor_fusion.clear();
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
+              //cout << "Sensor " << i << ": ";
               vector<double> temp;
               for(int j = 0; j < 7; j++)
               {
                 temp.push_back(sensor_fusion[i][j]);
+                //cout << sensor_fusion[i][j] << ", ";
               }
+              //cout << endl;
               vehicle.sensor_fusion.push_back(temp);
             }
 
