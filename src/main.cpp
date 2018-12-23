@@ -218,6 +218,7 @@ int main() {
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
       auto s = hasData(data);
+      double max_s = 6945.554;
 
       if (s != "") {
         auto j = json::parse(s);
@@ -258,6 +259,11 @@ int main() {
             }
             //Add sensor fusion
             vehicle.sensor_fusion.clear();
+            vehicle.sensor_id_by_lane = vector<vector<int> >(3, vector<int>(0) );
+            vehicle.sensor_trail = vector<vector<double> >(3, vector<double>(2, 0.0));
+            vehicle.sensor_lead = vector<vector<double> >(3, vector<double>(2, 0.0));
+            vector<double> min_diff_trail(3, 100000);
+            vector<double> min_diff_lead(3, 100000);
             for(int i = 0; i < sensor_fusion.size(); i++)
             {
               //cout << "Sensor " << i << ": ";
@@ -269,124 +275,62 @@ int main() {
               }
               //cout << endl;
               vehicle.sensor_fusion.push_back(temp);
+              double sensor_d = sensor_fusion[i][6];
+              double sensor_s = sensor_fusion[i][5];
+              double sensor_vy = sensor_fusion[i][4];
+              double sensor_vx = sensor_fusion[i][3];
+              double sensor_vel = sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) * 2.24;
+              int sensor_lane;
+              if(sensor_d < 4.0)
+              {
+                sensor_lane = 0;
+              }
+              else if(sensor_d >= 4.0 && sensor_d <= 8.0)
+              {
+                sensor_lane = 1;
+              }
+              else
+              {
+                sensor_lane = 2;
+              }
+
+              double s_diff = car_s - sensor_s;
+              double s_diff_abs = fabs(car_s - sensor_s);
+              if(s_diff >= 0.0)
+              {
+                //trailing car
+                if(s_diff_abs < min_diff_trail[sensor_lane])
+                {
+                  min_diff_trail[sensor_lane] = s_diff_abs;
+                  vehicle.sensor_trail[sensor_lane][0] = s_diff_abs;
+                  vehicle.sensor_trail[sensor_lane][1] = sensor_vel;
+                }
+              }
+              else
+              {
+                //lead car
+                if(s_diff_abs < min_diff_lead[sensor_lane])
+                {
+                  min_diff_lead[sensor_lane] = s_diff_abs;
+                  vehicle.sensor_lead[sensor_lane][0] = s_diff_abs;
+                  vehicle.sensor_lead[sensor_lane][1] = sensor_vel;
+                }
+              }
+
+              vehicle.sensor_id_by_lane[sensor_lane].push_back(i);
             }
+            for(int i = 0 ; i < 3; i++)
+            {
+                cout << vehicle.sensor_lead[i][0] << ", " << vehicle.sensor_lead[i][1] << ", ";
+                cout << vehicle.sensor_trail[i][0] << ", " << vehicle.sensor_trail[i][1] << endl;
+            }
+            cout << endl;
+
 
             vehicle.process_current_state();
             msgJson["next_x"] = vehicle.next_x_vals;
             msgJson["next_y"] = vehicle.next_y_vals;
 
-           /* 
-            vector<double> next_x_vals;
-            vector<double> next_y_vals;
-
-            vector<double> ptsx;
-            vector<double> ptsy;
-
-            // reference yaw, x, y states 
-            // either we will reference a starting point as to where the car is or at the previous paths.
-            double ref_x = car_x;
-            double ref_y = car_y;
-            double ref_yaw = deg2rad(car_yaw);
-
-
-            // if previous path is almost empty, use car as starting reference
-            if(prev_size < 2)
-            {
-              //user two points that make path tangent to referencee
-              double prev_car_x = car_x - cos(car_yaw);
-              double prev_car_y = car_y - sin(car_yaw);
-
-              ptsx.push_back(prev_car_x);
-              ptsy.push_back(prev_car_y);
-            }
-            // use previous path end point as starting reference
-            else
-            {
-              //redefine reference state as previous path end pointe
-              ref_x = previous_path_x[prev_size-1];
-              ref_y = previous_path_y[prev_size-1];
-
-              double ref_x_prev = previous_path_x[prev_size-2];
-              double ref_y_prev = previous_path_y[prev_size-2];
-              ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
-
-              //use last two end points to make path tanget to last two previous points 
-              ptsx.push_back(ref_x_prev);
-              ptsx.push_back(ref_x);
-
-              ptsy.push_back(ref_y_prev);
-              ptsy.push_back(ref_y);
-            }
-
-            //In Frenet add evenly spaced 30m way points
-            vector<double> next_wp0 = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            vector<double> next_wp1 = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            vector<double> next_wp2 = getXY(car_s+90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-            ptsx.push_back(next_wp0[0]);
-            ptsx.push_back(next_wp1[0]);
-            ptsx.push_back(next_wp2[0]);
-
-            ptsy.push_back(next_wp0[1]);
-            ptsy.push_back(next_wp1[1]);
-            ptsy.push_back(next_wp2[1]);
-
-            for(int i = 0; i < ptsx.size(); i++)
-            {
-              //shift car reference angle to 0
-              double shift_x = ptsx[i] - ref_x;
-              double shift_y = ptsy[i] - ref_y;
-
-              ptsx[i] = (shift_x * cos(-ref_yaw) - shift_y*sin(-ref_yaw));
-              ptsy[i] = (shift_x * sin(-ref_yaw) + shift_y*cos(-ref_yaw));
-
-            }
-
-            // create spline
-            tk::spline s;
-            s.set_points(ptsx, ptsy);
-
-            // Push back previous path
-            for(int i = 0; i < previous_path_x.size(); i++)
-            {
-              next_x_vals.push_back(previous_path_x[i]);
-              next_y_vals.push_back(previous_path_y[i]);
-            }
-
-            //calculate how to break up spline points so that we travel at our desired velocity
-            double target_x = 30.0;
-            double target_y = s(target_x);
-            double target_dist = sqrt(target_x*target_x + target_y*target_y);
-            double x_addon = 0;
-
-            cout << 50 - previous_path_x.size() << endl;
-            for(int i = 1; i <= 50 - previous_path_x.size(); i++)
-            {
-              double N = target_dist/(0.02*ref_vel/2.24);
-              double x_point = x_addon + target_x/N;
-              double y_point = s(x_point);
-
-              x_addon = x_point;
-
-              double x_ref = x_point;
-              double y_ref = y_point;
-
-              x_point = x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw);
-              y_point = x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw);
-
-              x_point += ref_x;
-              y_point += ref_y;
-
-              next_x_vals.push_back(x_point);
-              next_y_vals.push_back(y_point);
-            }
-
-
-
-            // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-            msgJson["next_x"] = next_x_vals;
-            msgJson["next_y"] = next_y_vals;
-            */
             auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
             //this_thread::sleep_for(chrono::milliseconds(1000));

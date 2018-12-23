@@ -3,20 +3,20 @@
 
 static const double dt = 0.02;
 static const double max_vel = 45.0;
-static const double buffer_dist = 30.0;
+static const int    max_num_waypoints = 50;
+static const double kl_buffer_dist = 30.0;
+static const double min_buffer_dist = 15.0;
 
 Vehicle::Vehicle()
 {
   current_state = RDY;
   ref_vel = 1;
   target_vel = max_vel;
-  max_num_waypoints = 50;
   lane = 1;
 
   // Waypoint map to read from
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -152,7 +152,7 @@ void Vehicle::process_current_state()
       }
     }
 
-    if(prev_size > 0 && prev_size < 4)
+    if(prev_size > 0 && prev_size < max_num_waypoints/2)
     {
       current_state = KL;
       ref_vel = car_speed;
@@ -172,7 +172,7 @@ void Vehicle::process_current_state()
         if(sensor_s > car_s)
         {
           double s_diff = sensor_s - car_s;
-          if(s_diff < min_s && s_diff < buffer_dist)
+          if(s_diff < min_s && s_diff < kl_buffer_dist)
           {
             min_s = s_diff;
             double sensor_vx = sensor_fusion[i][3];
@@ -183,7 +183,7 @@ void Vehicle::process_current_state()
         }
       }
     }
-    if(ref_vel < target_vel)
+    if(ref_vel < target_vel && min_s > min_buffer_dist)
     {
       ref_vel += 0.225;
     }
@@ -191,9 +191,6 @@ void Vehicle::process_current_state()
     {
       ref_vel -= 0.225;
     }
-    cout << target_vel << endl;
-
-
 
     //Define first two points of spline
     //use last two end points to make path tanget to last two previous points 
@@ -222,12 +219,85 @@ void Vehicle::process_current_state()
       //shift car reference angle to 0
       double shift_x = ptsx[i] - ref_x;
       double shift_y = ptsy[i] - ref_y;
-
       ptsx[i] = (shift_x * cos(-ref_yaw) - shift_y*sin(-ref_yaw));
       ptsy[i] = (shift_x * sin(-ref_yaw) + shift_y*cos(-ref_yaw));
 
     }
 
+    //Spline
+    tk::spline s;
+    s.set_points(ptsx, ptsy);
+
+    double target_x = 30.0;
+    double target_y = s(target_x);
+    double target_dist = sqrt(target_x*target_x + target_y*target_y);
+    double x_addon = 0;
+    for(int i = 0; i < (max_num_waypoints - prev_size); i++)
+    {
+      double N = target_dist/(0.02*ref_vel/2.24);
+      double x_point = x_addon + target_x/N;
+      double y_point = s(x_point);
+
+      x_addon = x_point;
+
+      double x_ref = x_point;
+      double y_ref = y_point;
+
+      x_point = x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw);
+      y_point = x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw);
+
+      x_point += ref_x;
+      y_point += ref_y;
+
+      next_x_vals.push_back(x_point);
+      next_y_vals.push_back(y_point);
+
+    }
+    if(target_vel < 40)
+    {
+      current_state = LCL;
+      lane = 0;
+    }
+  }
+  else if(current_state == PLCL)
+  {
+  }
+  else if(current_state == LCL)
+  {
+    lane = 0;
+    //Define first two points of spline
+    //use last two end points to make path tanget to last two previous points 
+    ptsx.clear();
+    ptsy.clear();
+    ref_x = next_x_vals[prev_size-1];
+    ref_y = next_y_vals[prev_size-1];
+    double ref_x_prev = next_x_vals[prev_size-2];
+    double ref_y_prev = next_y_vals[prev_size-2];
+    ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
+    ptsx.push_back(ref_x_prev);
+    ptsx.push_back(ref_x);
+    ptsy.push_back(ref_y_prev);
+    ptsy.push_back(ref_y);
+
+    //Define next waypoints for spline
+    for(int i = 0; i < 3; i++)
+    {
+      vector<double> next_wp = getXY(car_s + 30*(i+1), (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+      ptsx.push_back(next_wp[0]);
+      ptsy.push_back(next_wp[1]);
+    }
+
+    for(int i = 0; i < ptsx.size(); i++)
+    {
+      //shift car reference angle to 0
+      double shift_x = ptsx[i] - ref_x;
+      double shift_y = ptsy[i] - ref_y;
+      ptsx[i] = (shift_x * cos(-ref_yaw) - shift_y*sin(-ref_yaw));
+      ptsy[i] = (shift_x * sin(-ref_yaw) + shift_y*cos(-ref_yaw));
+
+    }
+
+    //Spline
     tk::spline s;
     s.set_points(ptsx, ptsy);
 
@@ -256,12 +326,6 @@ void Vehicle::process_current_state()
       next_y_vals.push_back(y_point);
 
     }
-  }
-  else if(current_state == PLCL)
-  {
-  }
-  else if(current_state == LCL)
-  {
   }
   else if(current_state == PLCR)
   {

@@ -10,6 +10,7 @@
 #include "Eigen-3.3/Eigen/Dense"
 
 using namespace std;
+using namespace tk;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
@@ -37,6 +38,9 @@ class Vehicle
     vector<double> ptsy;
     //Sensor fusion data
     vector<vector<double> > sensor_fusion;
+    vector<vector<int> > sensor_id_by_lane;
+    vector<vector<double> > sensor_trail;
+    vector<vector<double> > sensor_lead;
     //Mapwaypoints
     vector<double> map_waypoints_x;
     vector<double> map_waypoints_y;
@@ -54,13 +58,13 @@ class Vehicle
     //State info
     vector<state> successor_states();
     state current_state;
+    spline spline_s;
 
     //pathing variables
     double ref_vel;
     double target_vel;
     int lane;
     int prev_size;
-    int max_num_waypoints;
     VectorXd alpha;
     double x_temp;
     double T;
