@@ -248,7 +248,7 @@ int main() {
             json msgJson;
 
             //Update Vehicle parameters
-            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed, prev_size);
+            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed/2.24, prev_size);
             //Add previous path
             vehicle.next_x_vals.clear();
             vehicle.next_y_vals.clear();

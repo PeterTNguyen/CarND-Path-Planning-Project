@@ -76,7 +76,14 @@ class Vehicle
     double car_y;
     double car_yaw;
     double car_speed;
+    double car_speed_ms;
     static constexpr double max_s = 6945.554;
+
+    //Cost functions
+    double calculate_cost(vector<double> weights, int lane);
+    double trailing_car_cost(int lane);
+    double lead_car_cost(int lane);
+    double ego_car_cost(int lane);
 
     //Helper functions from main.cpp
     static constexpr double pi() { return M_PI; }

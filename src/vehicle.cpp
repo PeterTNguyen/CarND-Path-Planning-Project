@@ -2,7 +2,7 @@
 
 
 static const double dt = 0.02;
-static const double max_vel = 45.0;
+static const double max_vel = 45.0/2.24;
 static const int    max_num_waypoints = 50;
 static const double kl_buffer_dist = 30.0;
 static const double min_buffer_dist = 15.0;
@@ -178,18 +178,18 @@ void Vehicle::process_current_state()
             double sensor_vx = sensor_fusion[i][3];
             double sensor_vy = sensor_fusion[i][4];
 
-            target_vel =sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) * 2.24;
+            target_vel =sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy);
           }
         }
       }
     }
     if(ref_vel < target_vel && min_s > min_buffer_dist)
     {
-      ref_vel += 0.225;
+      ref_vel += (0.225/2.24);
     }
     else
     {
-      ref_vel -= 0.225;
+      ref_vel -= (0.225/2.24);
     }
 
     //Define first two points of spline
@@ -234,7 +234,7 @@ void Vehicle::process_current_state()
     double x_addon = 0;
     for(int i = 0; i < (max_num_waypoints - prev_size); i++)
     {
-      double N = target_dist/(0.02*ref_vel/2.24);
+      double N = target_dist/(0.02*ref_vel);
       double x_point = x_addon + target_x/N;
       double y_point = s(x_point);
 
@@ -253,11 +253,14 @@ void Vehicle::process_current_state()
       next_y_vals.push_back(y_point);
 
     }
-    if(target_vel < 40)
+    if(target_vel < 40/2.24)
     {
-      current_state = LCL;
-      lane = 0;
+      //current_state = LCL;
+      //lane = 0;
     }
+
+    double test_cost = trailing_car_cost(0);
+    cout << "COST: " << test_cost << endl;
   }
   else if(current_state == PLCL)
   {
@@ -307,7 +310,7 @@ void Vehicle::process_current_state()
     double x_addon = 0;
     for(int i = 0; i < (50 - prev_size); i++)
     {
-      double N = target_dist/(0.02*ref_vel/2.24);
+      double N = target_dist/(0.02*ref_vel);
       double x_point = x_addon + target_x/N;
       double y_point = s(x_point);
 
@@ -326,6 +329,8 @@ void Vehicle::process_current_state()
       next_y_vals.push_back(y_point);
 
     }
+    double test_cost = trailing_car_cost(0);
+    cout << "COST: " << test_cost << endl;
   }
   else if(current_state == PLCR)
   {
@@ -339,6 +344,41 @@ void Vehicle::process_current_state()
 
 }
 
+//weights - one for current lane, one for adjacent lane
+double Vehicle::calculate_cost(vector<double> weights, int lane)
+{
+  double cost = 0.0;
+  return 0.0;
+}
+
+double Vehicle::trailing_car_cost(int lane)
+{
+  double cost;
+
+  //Buffers
+  double buffer_start = 10.0;
+  double buffer_end = 20.0;
+
+  double t_est = 30/car_speed;
+  double trail_car_speed = sensor_trail[lane][1];
+  double trail_car_start = sensor_trail[lane][0];
+  double trail_car_travel = t_est*(car_speed - trail_car_speed);
+  double trail_car_end = trail_car_start - trail_car_travel;
+
+  cout << "TRAIL_CAR_END: " << trail_car_end << endl;
+
+  if(trail_car_end < buffer_start)
+    cost = 1.0;
+  else if(trail_car_end >= buffer_end)
+    cost = 0;
+  else
+  {
+    cost = 1.0 -(trail_car_end - buffer_start)/(buffer_end - buffer_start);
+  }
+  return cost;
+}
+
+
 void Vehicle::process_state_transition()
 {
   vector<state> next_states = this->successor_states();
@@ -347,7 +387,7 @@ void Vehicle::process_state_transition()
     case RDY:
       break;
     case KL:
-     break; 
+     break;
     case PLCL:
      break;
     case LCL:
