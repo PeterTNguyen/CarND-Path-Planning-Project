@@ -248,7 +248,7 @@ int main() {
             json msgJson;
 
             //Update Vehicle parameters
-            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed/2.24, prev_size);
+            vehicle.update_data(car_x, car_y, car_s, car_d, car_yaw, car_speed, prev_size);
             //Add previous path
             vehicle.next_x_vals.clear();
             vehicle.next_y_vals.clear();
@@ -260,8 +260,8 @@ int main() {
             //Add sensor fusion
             vehicle.sensor_fusion.clear();
             vehicle.sensor_id_by_lane = vector<vector<int> >(3, vector<int>(0) );
-            vehicle.sensor_trail = vector<vector<double> >(3, vector<double>(2, 0.0));
-            vehicle.sensor_lead = vector<vector<double> >(3, vector<double>(2, 0.0));
+            vehicle.sensor_trail = vector<vector<double> >(3, vector<double>(2, -1.0));
+            vehicle.sensor_lead = vector<vector<double> >(3, vector<double>(2, -1.0));
             vector<double> min_diff_trail(3, 100000);
             vector<double> min_diff_lead(3, 100000);
             for(int i = 0; i < sensor_fusion.size(); i++)
@@ -278,7 +278,9 @@ int main() {
               double sensor_d = sensor_fusion[i][6];
               double sensor_s = sensor_fusion[i][5];
               double sensor_vy = sensor_fusion[i][4];
+              sensor_vy /= 2.24;
               double sensor_vx = sensor_fusion[i][3];
+              sensor_vx /= 2.24;
               double sensor_vel = sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) * 2.24;
               int sensor_lane;
               if(sensor_d < 4.0)
@@ -319,12 +321,12 @@ int main() {
 
               vehicle.sensor_id_by_lane[sensor_lane].push_back(i);
             }
-            for(int i = 0 ; i < 3; i++)
-            {
-                cout << vehicle.sensor_lead[i][0] << ", " << vehicle.sensor_lead[i][1] << ", ";
-                cout << vehicle.sensor_trail[i][0] << ", " << vehicle.sensor_trail[i][1] << endl;
-            }
-            cout << endl;
+            //for(int i = 0 ; i < 3; i++)
+            //{
+            //    cout << vehicle.sensor_lead[i][0] << ", " << vehicle.sensor_lead[i][1] << ", ";
+            //    cout << vehicle.sensor_trail[i][0] << ", " << vehicle.sensor_trail[i][1] << endl;
+            //}
+            //cout << endl;
 
 
             vehicle.process_current_state();

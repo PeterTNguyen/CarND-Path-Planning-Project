@@ -68,6 +68,7 @@ class Vehicle
     VectorXd alpha;
     double x_temp;
     double T;
+    double lc_s;
 
     //Car parameters
     double car_s;
@@ -83,7 +84,8 @@ class Vehicle
     double calculate_cost(vector<double> weights, int lane);
     double trailing_car_cost(int lane);
     double lead_car_cost(int lane);
-    double ego_car_cost(int lane);
+    double ego_car_cost();
+    vector<vector<double> > lane_change_lanes;
 
     //Helper functions from main.cpp
     static constexpr double pi() { return M_PI; }
