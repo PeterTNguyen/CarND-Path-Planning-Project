@@ -17,10 +17,7 @@ using Eigen::VectorXd;
 enum state {
   RDY=0,
   KL,
-  PLCL,
-  LCL,
-  PLCR,
-  LCR
+  LC
 };
 
 class Vehicle
@@ -52,13 +49,10 @@ class Vehicle
       double car_d, double car_yaw, double car_speed, int prev_size);
 
     void process_current_state();
-    void process_state_transition();
 
   private:
     //State info
-    vector<state> successor_states();
     state current_state;
-    spline spline_s;
 
     //pathing variables
     double ref_vel;

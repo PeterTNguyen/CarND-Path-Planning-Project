@@ -2,12 +2,13 @@
 
 
 static const double dt = 0.02;
-static const double max_vel = 45.0/2.24;
+static const double max_vel = 45.0/2.23694;
 static const int    max_num_waypoints = 50;
 static const double kl_buffer_dist = 35.0;
 static const double min_buffer_dist = 15.0;
 static const double target_kl_dist = 30.0;
 static const double target_lc_dist = 50.0;
+static const double mph_ms = 2.23694;
 
 Vehicle::Vehicle()
 {
@@ -91,7 +92,7 @@ void Vehicle::update_data(double car_x, double car_y, double car_s,
   this->car_d = car_d;
   this->car_yaw = car_yaw;
   this->car_speed = car_speed;
-  this->car_speed_ms = car_speed/2.24;
+  this->car_speed_ms = car_speed/mph_ms;
   this->prev_size = prev_size;
 }
 
@@ -108,7 +109,7 @@ void Vehicle::process_current_state()
     if(prev_size < 2)
     {
       int num_pts = (int)(T/dt);
-      //user two points that make path tangent to referencee
+      //use two points that make path tangent to referencee
       double prev_car_x = car_x - cos(car_yaw);
       double prev_car_y = car_y - sin(car_yaw);
       ptsx.push_back(prev_car_x);
@@ -175,11 +176,11 @@ void Vehicle::process_current_state()
       
     if(ref_vel < target_vel && (lane_dist > min_buffer_dist || lane_dist == -1.0) )
     {
-      ref_vel += (0.225/2.24);
+      ref_vel += (0.225/mph_ms);
     }
     else
     {
-      ref_vel -= (0.225/2.24);
+      ref_vel -= (0.225/mph_ms);
     }
 
     //Define first two points of spline
@@ -217,7 +218,6 @@ void Vehicle::process_current_state()
     //Spline
     tk::spline s;
     s.set_points(ptsx, ptsy);
-
     double target_x = target_lc_dist;
     double target_y = s(target_x);
     double target_dist = sqrt(target_x*target_x + target_y*target_y);
@@ -227,22 +227,18 @@ void Vehicle::process_current_state()
       double N = target_dist/(0.02*ref_vel);
       double x_point = x_addon + target_x/N;
       double y_point = s(x_point);
-
       x_addon = x_point;
-
       double x_ref = x_point;
       double y_ref = y_point;
-
       x_point = x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw);
       y_point = x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw);
-
       x_point += ref_x;
       y_point += ref_y;
-
       next_x_vals.push_back(x_point);
       next_y_vals.push_back(y_point);
-
     }
+
+    //State Transition
     if(target_vel < max_vel)
     {
       vector<double> lane_changes = lane_change_lanes[lane];
@@ -258,16 +254,13 @@ void Vehicle::process_current_state()
         {
           cost_threshold = lc_cost;
           lane = lc_lane;
-          current_state = LCL;
+          current_state = LC;
           lc_s = max_s + car_s + target_lc_dist + 10; 
         }
       }
     }
   }
-  else if(current_state == PLCL)
-  {
-  }
-  else if(current_state == LCL)
+  else if(current_state == LC)
   {
     double lane_dist = sensor_lead[lane][0];
     double lane_velocity = sensor_lead[lane][1];
@@ -278,11 +271,11 @@ void Vehicle::process_current_state()
       
     if(ref_vel < target_vel )
     {
-      ref_vel += (0.225/2.24);
+      ref_vel += (0.225/mph_ms);
     }
     else
     {
-      ref_vel -= (0.225/2.24);
+      ref_vel -= (0.225/mph_ms);
     }
     //Define first two points of spline
     //use last two end points to make path tanget to last two previous points 
@@ -351,15 +344,6 @@ void Vehicle::process_current_state()
       current_state = KL;
     }
   }
-  else if(current_state == PLCR)
-  {
-  }
-  else if(current_state == LCR)
-  {
-  }
-  else
-  {
-  }
 
 }
 
@@ -402,6 +386,7 @@ double Vehicle::lead_car_cost(int lane)
 {
   double lead_car_speed = sensor_lead[lane][1];
   double lead_car_start = sensor_lead[lane][0];
+
   if(lead_car_start == -1.0)
     return 0.0;
 
@@ -436,66 +421,6 @@ double Vehicle::ego_car_cost()
 }
 
 
-void Vehicle::process_state_transition()
-{
-  vector<state> next_states = this->successor_states();
-  switch(this->current_state)
-  {
-    case RDY:
-      break;
-    case KL:
-     break;
-    case PLCL:
-     break;
-    case LCL:
-     break;
-    case PLCR:
-     break;
-    case LCR:
-     break;
-    default:
-     break;
-  }
-}
-
-
-vector<state> Vehicle::successor_states()
-{
-  vector<state> next_states;
-  switch(this->current_state)
-  {
-    case RDY:
-      next_states.push_back(RDY);
-      next_states.push_back(KL);
-      break;
-    case KL:
-      next_states.push_back(KL);
-      next_states.push_back(PLCL);
-      next_states.push_back(PLCR);
-     break; 
-    case PLCL:
-      next_states.push_back(PLCL);
-      next_states.push_back(KL);
-      next_states.push_back(LCL);
-     break;
-    case LCL:
-      next_states.push_back(LCL);
-      next_states.push_back(KL);
-     break;
-    case PLCR:
-      next_states.push_back(PLCR);
-      next_states.push_back(KL);
-      next_states.push_back(LCR);
-     break;
-    case LCR:
-      next_states.push_back(LCR);
-      next_states.push_back(KL);
-     break;
-    default:
-     break;
-  }
-  return next_states;
-}
 
 
 

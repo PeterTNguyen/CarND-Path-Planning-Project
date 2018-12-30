@@ -219,6 +219,7 @@ int main() {
 
       auto s = hasData(data);
       double max_s = 6945.554;
+      double mph_ms = 2.23694;
 
       if (s != "") {
         auto j = json::parse(s);
@@ -278,10 +279,10 @@ int main() {
               double sensor_d = sensor_fusion[i][6];
               double sensor_s = sensor_fusion[i][5];
               double sensor_vy = sensor_fusion[i][4];
-              sensor_vy /= 2.24;
+              //sensor_vy /= mph_ms;
               double sensor_vx = sensor_fusion[i][3];
-              sensor_vx /= 2.24;
-              double sensor_vel = sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) * 2.24;
+              //sensor_vx /= mph_ms;
+              double sensor_vel = sqrt(sensor_vx*sensor_vx + sensor_vy*sensor_vy) ;
               int sensor_lane;
               if(sensor_d < 4.0)
               {
