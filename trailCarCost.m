@@ -9,8 +9,8 @@ car_d_diff = 10;
 t = 30/car_v;
 
 est_d_diff = car_d_diff - t*(car_v - car_trail_v)
-
 ##plot(car_trail_v, est_d_diff);
+
 
 
 
@@ -30,5 +30,8 @@ endfor
 
 figure;
 plot(est_d_range, cost);
-title('Cost function');
+title('Trailing Car Cost function');
 xlabel('Estimated Trail/Lead Car distance');ylabel('Cost');grid on;
+hold on;
+plot([buffer buffer], [0 1],'--');
+legend('Cost', 'Buffer zone');

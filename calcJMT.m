@@ -16,5 +16,6 @@ s = C(1)*t.^3 + C(2)*t.^4 + C(3)*t.^5;
 s1 = 3*C(1)*t.^2 + 4*C(2)*t.^3 + 5*C(3)*t.^4;
 s2 = 6*C(1)*t + 12*C(2)*t.^2 + 20*C(3)*t.^3;
 s3 = 6*C(1)   + 24*C(2)*t    + 60*C(3);
-plot(t, s, t, s1, t, s2, t, s3);
-legend('x','x1','x2','x3');
+plot(t, s, t, s1, t, s2, t, s3); grid on;
+legend('Distance','Velocity','Acceleration','Jerk'); 
+xlabel('Time [s]'); ylabel('Motion Variables');title('JMT');

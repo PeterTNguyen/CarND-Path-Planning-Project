@@ -317,11 +317,15 @@ void Vehicle::process_current_state()
     double target_y = s(target_x);
     double target_dist = sqrt(target_x*target_x + target_y*target_y);
     double x_addon = 0;
+    double N = target_dist/(0.02*ref_vel);
+    double x_point = x_addon + target_x/N;
+    double y_point = s(x_point);
+    double spline_angle = atan2(y_point, x_point);
     for(int i = 0; i < (max_num_waypoints - prev_size); i++)
     {
-      double N = target_dist/(0.02*ref_vel);
       double x_point = x_addon + target_x/N;
       double y_point = s(x_point);
+
 
       x_addon = x_point;
 
